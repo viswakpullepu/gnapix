@@ -234,6 +234,12 @@ header {
     gap: 0.8rem;
   }
   
+  @media (max-width: 600px) {
+    .nav-links {
+      display: none !important; /* Hide navigation links on small screens to prevent header wrap glitches */
+    }
+  }
+  
   .nav-links button {
     font-size: 0.8rem;
   }
@@ -243,6 +249,8 @@ header {
     padding: 1.5rem;
     border-radius: 16px;
     gap: 0.6rem;
+    margin-top: auto; /* Push card to bottom to keep 3D center scene fully visible */
+    margin-bottom: 0.5rem;
   }
 
   .section-tagline {

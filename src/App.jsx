@@ -10,10 +10,14 @@ import { CameraModel, PolaroidModel, MagnetModel, StickerModel, useSmileyTexture
 
 // Camera rig for continuous soft mouse panning
 function CameraRig() {
+  const { viewport } = useThree();
+  const isMobile = viewport.width < 7;
+
   useFrame((state) => {
+    const targetY = state.mouse.y * 1.2 + (isMobile ? 0.8 : 0);
     state.camera.position.x = THREE.MathUtils.lerp(state.camera.position.x, state.mouse.x * 1.8, 0.05);
-    state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, state.mouse.y * 1.2, 0.05);
-    state.camera.lookAt(0, 0, 0);
+    state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, targetY, 0.05);
+    state.camera.lookAt(0, isMobile ? -0.8 : 0, 0);
   });
   return null;
 }
@@ -181,6 +185,11 @@ function HeroScene({ active }) {
           const target = sphereItems[idx].spherePos;
           const targetUI = sphereItems[idx].targetUIPos;
           
+          // Convert absolute world target coordinates to local group coordinates
+          const targetLocalX = targetUI[0] / layoutScale;
+          const targetLocalY = targetUI[1] / layoutScale;
+          const targetLocalZ = targetUI[2] / layoutScale;
+
           // Explode direction (outward vector)
           const explodeX = target[0] * 2.5;
           const explodeY = target[1] * 2.5;
@@ -192,7 +201,7 @@ function HeroScene({ active }) {
           gsap.to(pMesh.position, {
             keyframes: [
               { x: explodeX, y: explodeY, z: explodeZ, duration: 0.6, ease: "power2.out" }, // 1. Explode outward
-              { x: targetUI[0], y: targetUI[1], z: targetUI[2], duration: 1.2, ease: "power2.in" } // 2. Fly to UI button
+              { x: targetLocalX, y: targetLocalY, z: targetLocalZ, duration: 1.2, ease: "power2.in" } // 2. Fly to UI button
             ],
             delay: animDelay
           });
@@ -201,8 +210,8 @@ function HeroScene({ active }) {
           gsap.to(pMesh.position, {
             keyframes: [
               { z: explodeZ, duration: 0.6, ease: "power2.out" },
-              { z: targetUI[2] + 6, duration: 0.6, ease: "power1.out" }, // swoop forward
-              { z: targetUI[2], duration: 0.6, ease: "power1.in" } // settle to button
+              { z: targetLocalZ + 6, duration: 0.6, ease: "power1.out" }, // swoop forward
+              { z: targetLocalZ, duration: 0.6, ease: "power1.in" } // settle to button
             ],
             delay: animDelay
           });
@@ -295,7 +304,11 @@ function HeroScene({ active }) {
           <Text
             key={`star-${idx}`}
             ref={el => starsRef.current[idx] = el}
-            position={item.targetUIPos}
+            position={[
+              item.targetUIPos[0] / layoutScale,
+              item.targetUIPos[1] / layoutScale,
+              item.targetUIPos[2] / layoutScale
+            ]}
             fontSize={0.8}
             scale={0} 
             color="#FFD83B"
