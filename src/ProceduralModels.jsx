@@ -177,6 +177,11 @@ export const CameraModel = forwardRef((props, ref) => {
         <boxGeometry args={[0.26, 0.16, 0.04]} />
         <meshStandardMaterial color="#FAF8F5" emissive="#ffffff" emissiveIntensity={0.8} />
       </mesh>
+      {/* Film exit slot */}
+      <mesh position={[0, -0.35, 0.401]}>
+        <boxGeometry args={[1.2, 0.06, 0.01]} />
+        <meshBasicMaterial color="#050505" />
+      </mesh>
     </group>
   );
 });

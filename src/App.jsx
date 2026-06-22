@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, Suspense, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Environment, Sparkles, Text, Float, Html, RoundedBox, MeshTransmissionMaterial } from '@react-three/drei';
+import { ScrollControls, useScroll, Float, Text, ContactShadows, Environment, Sparkles, Html } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
-import { ArrowRight, Layers, Camera, Image as ImageIcon } from 'lucide-react';
 import * as THREE from 'three';
+import gsap from 'gsap';
+import { ArrowRight, Layers, Camera, Image as ImageIcon } from 'lucide-react';
 import { CameraModel, PolaroidModel, MagnetModel, StickerModel, useSmileyTexture, useWaveTexture, usePictureTexture } from './ProceduralModels';
 
 // Camera rig for continuous soft mouse panning
@@ -17,105 +18,309 @@ function CameraRig() {
   return null;
 }
 
-// 1. HERO SCENE: Infinite Gallery Tunnel with Mixed Elements
+// 1. HERO SCENE: Cinematic sequence (Camera -> Flash -> Polaroids Sphere -> GNAPIX text -> Vanish)
 function HeroScene({ active }) {
   const { viewport } = useThree();
   const groupRef = useRef();
+  const cameraModelRef = useRef();
+  const polaroidsRef = useRef([]);
+  const starsRef = useRef([]);
+  const textGroupRef = useRef();
+  const printStartTime = useRef(0);
+
   const isMobile = viewport.width < 7;
   const layoutScale = isMobile ? viewport.width / 9.0 : 1.0;
 
-  const smile = useSmileyTexture('#FFD83B');
-  const wave = useWaveTexture();
+  const [sequencePhase, setSequencePhase] = useState(0);
 
-  const tunnelItems = useMemo(() => {
+  // Fibonacci sphere generation
+  const sphereItems = useMemo(() => {
     const items = [];
-    const components = [PolaroidModel, StickerModel, MagnetModel];
-    
-    for (let i = 0; i < 180; i++) {
-      const angle = (i / 180) * Math.PI * 2 * 8.0 + (Math.random() * 0.5); // 8 full spirals
-      const radius = 1.2 + Math.random() * 6.0; // Fill the inner and outer empty space
-      const z = ((i / 180) - 0.5) * 30; // Deep depth from -15 to 15
+    const count = isMobile ? 60 : 120; 
+    const goldenRatio = (1 + Math.sqrt(5)) / 2;
+    for (let i = 0; i < count; i++) {
+      const theta = 2 * Math.PI * i / goldenRatio;
+      const phi = Math.acos(1 - 2 * (i + 0.5) / count);
+      const radius = isMobile ? 3.5 : 4.5;
+      const x = radius * Math.sin(phi) * Math.cos(theta);
+      const y = radius * Math.sin(phi) * Math.sin(theta);
+      const z = radius * Math.cos(phi);
       
-      // Heavily favor Polaroids (60% chance), then Stickers and Magnets
-      const rand = Math.random();
-      const type = rand < 0.6 ? 0 : rand < 0.8 ? 1 : 2;
-      
-      let args = {};
-      let scale = 0.4;
-      if (type === 0) {
-        args = { pictureIndex: i % 5 };
-      } else if (type === 1) {
-        args = { texture: i % 2 === 0 ? smile : wave };
-        scale = 0.5;
-      } else {
-        args = { pictureIndex: i % 4 };
-        scale = 0.45;
-      }
+      const dummyObj = new THREE.Object3D();
+      dummyObj.position.set(x, y, z);
+      dummyObj.lookAt(0, 0, 0); 
 
-      // Add organic chaotic tilt to prevent exact face-overlap and make it look natural
-      const rotX = (Math.random() - 0.5) * 0.8;
-      const rotY = angle + Math.PI / 2 + (Math.random() - 0.5) * 0.8;
-      const rotZ = (Math.random() - 0.5) * 0.8;
+      // Approximate top right UI position in 3D
+      const targetUIPos = [viewport.width / 2.2, viewport.height / 2.2, 2];
 
       items.push({
         id: i,
-        Component: components[type],
-        args,
-        scale,
-        pos: [Math.cos(angle) * radius, Math.sin(angle) * radius, z],
-        rot: [rotX, rotY, rotZ]
+        spherePos: [x, y, z],
+        sphereRot: [dummyObj.rotation.x, dummyObj.rotation.y, dummyObj.rotation.z],
+        targetUIPos,
+        letterIndex: i % 6, 
       });
     }
     return items;
-  }, [smile, wave]);
+  }, [viewport, isMobile]);
+
+  useEffect(() => {
+    if (sequencePhase === 2) {
+      printStartTime.current = performance.now() / 1000;
+    }
+  }, [sequencePhase]);
+
+  useEffect(() => {
+    if (!active) return;
+    
+    // Initial setup
+    polaroidsRef.current.forEach((mesh) => {
+      if (mesh) {
+        mesh.visible = false;
+        mesh.position.set(0, -0.35, 2.4); // Ejection slot of the camera (y = -0.35, z = 2.0 + 0.4 = 2.4)
+        mesh.scale.set(0.05, 0.05, 0.05); // Start very small inside the camera slot
+      }
+    });
+
+    if (cameraModelRef.current) {
+        cameraModelRef.current.position.set(0, 0, 2.0);
+        cameraModelRef.current.scale.set(0.8, 0.8, 0.8);
+        cameraModelRef.current.rotation.set(0, 0, 0);
+    }
+    const letters = textGroupRef.current?.children || [];
+    letters.forEach(l => l.scale.set(0, 0, 0));
+
+    // Timeline animation
+    const tl = gsap.timeline();
+
+    // 0 -> 1: Static pause, then Flash
+    tl.set(cameraModelRef.current.position, { x: 0, y: 0, z: 2.0 })
+      .set(cameraModelRef.current.rotation, { x: 0, y: 0, z: 0 })
+      .to({}, { duration: 0.6 })
+      .add(() => setSequencePhase(1)); // Flash Phase
+
+    // 1 -> 2: Flash burst duration, then Printing
+    tl.to({}, { duration: 0.2 })
+      .add(() => setSequencePhase(2)) // Printing Phase
+      .add(() => {
+        polaroidsRef.current.forEach((pMesh, idx) => {
+          if (!pMesh) return;
+          const target = sphereItems[idx].spherePos;
+          const rotTarget = sphereItems[idx].sphereRot;
+          const printDelay = idx * 0.008; // Rapid burst/stream matching the video reference
+          
+          gsap.set(pMesh, { visible: true, delay: printDelay });
+          
+          // Ejection & Flight path keyframes (fan out first, then converge to sphere)
+          const fanX = (Math.random() - 0.5) * 3.5;
+          const fanY = -0.35 - 0.4 - Math.random() * 1.0;
+          const fanZ = 2.4 + 0.5 + Math.random() * 1.5;
+
+          const fanRotX = (Math.random() - 0.5) * 2.0;
+          const fanRotY = (Math.random() - 0.5) * 2.0;
+          const fanRotZ = (Math.random() - 0.5) * 2.0;
+
+          gsap.fromTo(pMesh.position, 
+            { x: 0, y: -0.35, z: 2.4 },
+            {
+              keyframes: [
+                { x: fanX, y: fanY, z: fanZ, duration: 0.4, ease: "power1.out" }, // Burst and fan out under camera
+                { x: target[0], y: target[1], z: target[2], duration: 1.1, ease: "back.out(1.8)" } // Pull into sphere
+              ],
+              delay: printDelay
+            }
+          );
+
+          // Rotate keyframes - tumble during fan, then align to sphere face
+          gsap.fromTo(pMesh.rotation,
+            { x: 0, y: 0, z: 0 },
+            {
+              keyframes: [
+                { x: fanRotX, y: fanRotY, z: fanRotZ, duration: 0.4, ease: "power1.out" },
+                { x: rotTarget[0], y: rotTarget[1], z: rotTarget[2], duration: 1.1, ease: "power2.out" }
+              ],
+              delay: printDelay
+            }
+          );
+          
+          // Scale keyframes - start small inside slot, grow partially, then settle to full size
+          gsap.fromTo(pMesh.scale,
+            { x: 0.05, y: 0.05, z: 0.05 },
+            {
+              keyframes: [
+                { x: 0.25, y: 0.25, z: 0.25, duration: 0.4, ease: "power1.out" },
+                { x: 0.4, y: 0.4, z: 0.4, duration: 1.1, ease: "back.out(1.5)" }
+              ],
+              delay: printDelay
+            }
+          );
+        });
+      })
+      .to({}, { duration: 2.6 }) // Wait for all polaroids to print and settle into the sphere
+
+    // 2 -> 3: Reveal Phase (Inside the closed sphere)
+      .add(() => {
+        setSequencePhase(3);
+        // Shrink the camera away out of sight
+        gsap.to(cameraModelRef.current.scale, { x: 0, y: 0, z: 0, duration: 0.6, ease: "back.in(1.7)" });
+      });
+
+    // Reveal the letters of GNAPIX one by one
+    letters.forEach((letter, idx) => {
+      tl.to(letter.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: "back.out(1.5)" }, `+=${0.15}`);
+      tl.fromTo(letter.position, { z: -5 }, { z: 0, duration: 0.5, ease: "power2.out" }, "<");
+    });
+
+    // 3 -> 4: Explode sphere outward and fly to button
+    tl.to({}, { duration: 0.4 })
+      .add(() => {
+        setSequencePhase(4);
+        
+        polaroidsRef.current.forEach((pMesh, idx) => {
+          if (!pMesh) return;
+          const target = sphereItems[idx].spherePos;
+          const targetUI = sphereItems[idx].targetUIPos;
+          
+          // Explode direction (outward vector)
+          const explodeX = target[0] * 2.5;
+          const explodeY = target[1] * 2.5;
+          const explodeZ = target[2] * 2.5;
+          
+          const animDelay = Math.random() * 0.3; // Stagger slightly for organic movement
+
+          // Double stage: explode outward, then get sucked into the UI button
+          gsap.to(pMesh.position, {
+            keyframes: [
+              { x: explodeX, y: explodeY, z: explodeZ, duration: 0.6, ease: "power2.out" }, // 1. Explode outward
+              { x: targetUI[0], y: targetUI[1], z: targetUI[2], duration: 1.2, ease: "power2.in" } // 2. Fly to UI button
+            ],
+            delay: animDelay
+          });
+
+          // Z-axis 3D swoop during flight
+          gsap.to(pMesh.position, {
+            keyframes: [
+              { z: explodeZ, duration: 0.6, ease: "power2.out" },
+              { z: targetUI[2] + 6, duration: 0.6, ease: "power1.out" }, // swoop forward
+              { z: targetUI[2], duration: 0.6, ease: "power1.in" } // settle to button
+            ],
+            delay: animDelay
+          });
+
+          gsap.to(pMesh.scale, {
+            keyframes: [
+              { x: 0.5, y: 0.5, z: 0.5, duration: 0.6, ease: "power2.out" }, // Grow slightly during explosion
+              { x: 0, y: 0, z: 0, duration: 1.2, ease: "power2.in" } // Shrink to nothing at the button
+            ],
+            delay: animDelay
+          });
+
+          gsap.to(pMesh.rotation, {
+            x: Math.random() * 8,
+            y: Math.random() * 8,
+            z: Math.random() * 8,
+            duration: 1.8,
+            delay: animDelay
+          });
+
+          // Star pop at destination
+          if (starsRef.current[pMesh.userData.id]) {
+            gsap.fromTo(starsRef.current[pMesh.userData.id].scale, 
+              { x: 0, y: 0, z: 0 }, 
+              { x: 1.8, y: 1.8, z: 1.8, duration: 0.2, yoyo: true, repeat: 1, delay: animDelay + 1.6 }
+            );
+          }
+        });
+      });
+
+    // Wait for flight to complete, then mark done
+    tl.to({}, { duration: 2.2 })
+      .add(() => setSequencePhase(5));
+
+    return () => tl.kill();
+  }, [active, sphereItems]);
 
   useFrame((state, delta) => {
     if (!active) return;
-    if (groupRef.current) {
-      groupRef.current.rotation.z -= delta * 0.05; // Extremely slow, majestic rotation
-      groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, state.mouse.y * 0.5, 0.05);
-      groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, state.mouse.x * 0.5, 0.05);
+
+    if (sequencePhase >= 3 && groupRef.current) {
+      groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, state.mouse.y * 0.3, 0.05);
+      groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, state.mouse.x * 0.3, 0.05);
     }
   });
 
   return (
-    <group visible={active} scale={layoutScale}>
-      <group ref={groupRef}>
-        {tunnelItems.map((item) => {
-          const { Component, args, scale, id, pos, rot } = item;
-          return (
-            <Component key={id} position={pos} rotation={rot} scale={scale} {...args} />
-          );
-        })}
-      </group>
+    <group visible={active} ref={groupRef} scale={layoutScale}>
+      {/* 2D Overlay for Intro Black Screen & Camera Flash */}
+      <Html fullscreen style={{ pointerEvents: 'none' }} zIndexRange={[100, 0]}>
+        {/* Intro Black Screen goes off when phase > 0 */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'black',
+          opacity: sequencePhase === 0 ? 1 : 0,
+          transition: 'opacity 1s ease'
+        }} />
+        {/* Camera Flash */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'white',
+          opacity: sequencePhase === 1 ? 1 : 0,
+          animation: sequencePhase === 1 ? 'flashPulse 0.15s infinite alternate' : 'none',
+          mixBlendMode: 'screen'
+        }} />
+        <style>{`
+          @keyframes flashPulse {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+          }
+        `}</style>
+      </Html>
+
+      {/* 3D Camera */}
+      <CameraModel ref={cameraModelRef} scale={0.8} />
+
+      {/* Polaroids */}
+      {sphereItems.map((item, idx) => (
+        <PolaroidModel 
+          key={item.id} 
+          ref={el => polaroidsRef.current[idx] = el}
+          userData={{ id: item.id, letterIndex: item.letterIndex }}
+          pictureIndex={idx % 5}
+        />
+      ))}
       
-      {/* Shadow Text Offset */}
-      <Float speed={1.2} rotationIntensity={0} floatIntensity={0.1} position={[0, -0.05, -1.2]}>
-        <Text
-          fontSize={1.5}
-          color="#000000"
-          anchorX="center"
-          anchorY="middle"
-          letterSpacing={0.1}
-          fontWeight="bold"
-          fillOpacity={0.3}
-        >
-          gnapix
-        </Text>
-      </Float>
-      {/* Main Bold Black Text */}
-      <Float speed={1.2} rotationIntensity={0} floatIntensity={0.1} position={[0, 0, -1]}>
-        <Text
-          fontSize={1.5}
-          color="#111111"
-          anchorX="center"
-          anchorY="middle"
-          letterSpacing={0.1}
-          fontWeight="bold"
-        >
-          gnapix
-        </Text>
-      </Float>
+      {/* Cartoon Stars */}
+      <group>
+        {sphereItems.map((item, idx) => (
+          <Text
+            key={`star-${idx}`}
+            ref={el => starsRef.current[idx] = el}
+            position={item.targetUIPos}
+            fontSize={0.8}
+            scale={0} 
+            color="#FFD83B"
+          >
+            ⭐
+          </Text>
+        ))}
+      </group>
+
+      {/* GNAPIX Text */}
+      <group ref={textGroupRef} position={[-2.5, 0, 0]}>
+        {['G', 'N', 'A', 'P', 'I', 'X'].map((letter, idx) => (
+          <Text
+            key={idx}
+            position={[idx * 1.0, 0, 0]}
+            fontSize={1.8}
+            color="#ffffff"
+            fontWeight="bold"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {letter}
+          </Text>
+        ))}
+      </group>
     </group>
   );
 }
@@ -273,8 +478,8 @@ function PolaroidScatterScene({ active }) {
   const isMobile = viewport.width < 7;
   const layoutScale = isMobile ? viewport.width / 9.0 : 1.0;
 
-  const count = 80;
-  const floorY = -3.2;
+  const count = isMobile ? 24 : 80;
+  const floorY = isMobile ? -4.5 : -3.2;
 
   // Initialize physics properties
   const cards = useMemo(() => {
@@ -296,7 +501,7 @@ function PolaroidScatterScene({ active }) {
       });
     }
     return list;
-  }, [count]);
+  }, [count, isMobile]);
 
   const refs = useRef({});
   const [hoveredIdx, setHoveredIdx] = useState(null);
@@ -586,6 +791,14 @@ function StickerGridScene({ active }) {
 // MAIN APP COMPONENT
 export default function App() {
   const [activeSection, setActiveSection] = useState(0);
+  const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileScreen(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [videoUrls, setVideoUrls] = useState({
     stickers: '',
@@ -886,7 +1099,8 @@ export default function App() {
         overflow: 'hidden',
         zIndex: 1,
         pointerEvents: 'none',
-        backgroundColor: '#FAF8F5'
+        backgroundColor: activeSection === 0 ? '#E07A5F' : '#FAF8F5',
+        transition: 'background-color 1.2s ease'
       }}>
         <video
           id="video-stickers"
@@ -955,14 +1169,15 @@ export default function App() {
 
       <div className="ui-fullscreen-wrapper">
         {/* Header Navbar */}
-        <header className="interactive-ui">
-          <div className="logo">gnapix</div>
-          <nav>
+        <header className="interactive-ui" style={{ color: activeSection === 0 ? '#fff' : '#2A2A2A', transition: 'color 0.8s ease' }}>
+          <div className="logo" style={{ color: 'inherit' }}>gnapix</div>
+          <nav style={{ display: 'flex', alignItems: 'center' }}>
             <ul className="nav-links">
               <li>
                 <button
                   className={activeSection === 0 ? 'active' : ''}
                   onClick={() => handleSetSection(0)}
+                  style={{ color: 'inherit' }}
                 >
                   Hero Space
                 </button>
@@ -971,6 +1186,7 @@ export default function App() {
                 <button
                   className={activeSection === 1 ? 'active' : ''}
                   onClick={() => handleSetSection(1)}
+                  style={{ color: 'inherit' }}
                 >
                   Glossy Stickers
                 </button>
@@ -979,6 +1195,7 @@ export default function App() {
                 <button
                   className={activeSection === 2 ? 'active' : ''}
                   onClick={() => handleSetSection(2)}
+                  style={{ color: 'inherit' }}
                 >
                   Refractive Magnets
                 </button>
@@ -987,11 +1204,30 @@ export default function App() {
                 <button
                   className={activeSection === 3 ? 'active' : ''}
                   onClick={() => handleSetSection(3)}
+                  style={{ color: 'inherit' }}
                 >
                   Polaroids Pile
                 </button>
               </li>
             </ul>
+            <button 
+              id="book-now-btn" 
+              className="book-now-button" 
+              style={{ 
+                marginLeft: '2rem', 
+                padding: '0.8rem 1.5rem', 
+                background: activeSection === 0 ? '#fff' : '#111', 
+                color: activeSection === 0 ? '#E07A5F' : '#fff', 
+                borderRadius: '8px', 
+                border: 'none', 
+                fontWeight: 'bold', 
+                cursor: 'pointer', 
+                zIndex: 100,
+                transition: 'background 0.5s ease, color 0.5s ease'
+              }}
+            >
+              Book Now
+            </button>
           </nav>
         </header>
 
@@ -1050,7 +1286,7 @@ export default function App() {
           <pointLight position={[-4, -4, 2]} intensity={0.2} />
 
           {/* Sparkles (always active) */}
-          <Sparkles count={400} scale={18} size={1.2} color="#FFFFFF" opacity={0.5} speed={0.2} noise={1.5} />
+          <Sparkles count={isMobileScreen ? 150 : 400} scale={18} size={1.2} color="#FFFFFF" opacity={0.5} speed={0.2} noise={1.5} />
 
           {/* Camera Mouse Rig (always active) */}
           <CameraRig />
@@ -1079,9 +1315,9 @@ export default function App() {
 
           {/* Post Processing */}
           <Suspense fallback={null}>
-            <EffectComposer disableNormalPass>
-              <Bloom luminanceThreshold={0.8} mipmapBlur intensity={0.3} />
-              <Vignette eskil={false} offset={0.1} darkness={0.9} />
+            <EffectComposer disableNormalPass multisampling={isMobileScreen ? 0 : 4}>
+              <Bloom luminanceThreshold={0.8} mipmapBlur intensity={isMobileScreen ? 0.15 : 0.3} />
+              {!isMobileScreen && <Vignette eskil={false} offset={0.1} darkness={0.9} />}
             </EffectComposer>
           </Suspense>
         </Canvas>
