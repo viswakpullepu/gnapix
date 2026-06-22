@@ -273,8 +273,8 @@ function PolaroidScatterScene({ active }) {
   const isMobile = viewport.width < 7;
   const layoutScale = isMobile ? viewport.width / 9.0 : 1.0;
 
-  const count = 6;
-  const floorY = -2.2;
+  const count = 80;
+  const floorY = -3.2;
 
   // Initialize physics properties
   const cards = useMemo(() => {
@@ -286,12 +286,12 @@ function PolaroidScatterScene({ active }) {
     for (let i = 0; i < count; i++) {
       list.push({
         id: i,
-        // Fall down scattered horizontally
-        x: (i - (count - 1) / 2) * 1.1 + (pseudoRandom(i * 10 + 1) - 0.5) * 0.2,
-        y: 8 + i * 1.5, // staggered drop height
-        z: i * 0.05,
+        // Scatter horizontally across the full viewport
+        x: (pseudoRandom(i * 10 + 1) - 0.5) * 18,
+        y: 8 + pseudoRandom(i * 15 + 3) * 60, // Rain continuously from high up
+        z: (pseudoRandom(i * 30 + 4) - 0.5) * 5.0, // Give them physical depth variation
         vy: 0,
-        rotZ: (pseudoRandom(i * 20 + 2) - 0.5) * 0.3,
+        rotZ: (pseudoRandom(i * 20 + 2) - 0.5) * Math.PI, // Random tumbling rotation
         hovered: false
       });
     }
@@ -306,7 +306,8 @@ function PolaroidScatterScene({ active }) {
     if (!active) {
       // Reset variables
       cards.forEach((c) => {
-        c.y = 8 + c.id * 1.5;
+        const pr = (seed) => { const x = Math.sin(seed)*10000; return x - Math.floor(x); };
+        c.y = 8 + pr(c.id * 15 + 3) * 60;
         c.vy = 0;
         c.hovered = false;
       });
