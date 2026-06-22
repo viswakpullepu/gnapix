@@ -277,3 +277,42 @@ header {
     text-align: center;
   }
 }
+
+/* Scroll container for native vertical scroll overlay */
+.scroll-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  z-index: 5;
+  scroll-behavior: smooth;
+  pointer-events: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbar for clean premium UI */
+.scroll-container::-webkit-scrollbar {
+  display: none;
+}
+.scroll-container {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scroll-section {
+  width: 100%;
+  height: 100vh;
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  padding: 2.5rem;
+  pointer-events: none; /* Let events pass through to canvas behind if not on card */
+}
+
+/* Enable pointer events only on the card inside the section */
+.scroll-section .main-content-card {
+  pointer-events: auto;
+}

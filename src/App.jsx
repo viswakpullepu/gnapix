@@ -823,6 +823,7 @@ export default function App() {
   const vidRefMagnets = useRef(null);
   const vidRefPolaroids = useRef(null);
 
+  const containerRef = useRef(null);
   const virtualProgress = useRef(0);
   const smoothProgress = useRef(0);
 
@@ -840,12 +841,31 @@ export default function App() {
     }
   }, []);
 
-  // Transition setter helper
+  // Transition setter helper (scrolls container to target section)
   const handleSetSection = (idx) => {
-    prepareVideoForSection(idx, idx > activeSection ? 1 : -1);
-    setActiveSection(idx);
-    virtualProgress.current = 0;
-    smoothProgress.current = 0;
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: idx * containerRef.current.clientHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+    const { scrollTop, clientHeight } = containerRef.current;
+    
+    const scrollFraction = scrollTop / (clientHeight || 1);
+    const sectionIndex = Math.min(Math.floor(scrollFraction), 3);
+    const progress = scrollFraction - sectionIndex;
+
+    if (sectionIndex !== activeSection) {
+      const direction = sectionIndex > activeSection ? 1 : -1;
+      prepareVideoForSection(sectionIndex, direction);
+      setActiveSection(sectionIndex);
+    }
+
+    virtualProgress.current = progress;
   };
 
   // Phase 1: Asynchronous Blob Preloading & True Page Loader
@@ -973,84 +993,7 @@ export default function App() {
     return () => cancelAnimationFrame(animId);
   }, [activeSection]);
 
-  // Sync scroll wheel & mobile touch swipes to video currentTime & active sections
-  useEffect(() => {
-    const handleWheel = (e) => {
-      const scrollSpeed = 0.0008; // smooth wheel scrub speed
-      virtualProgress.current += e.deltaY * scrollSpeed;
 
-      if (virtualProgress.current > 1.0) {
-        if (activeSection < 3) {
-          const nextSection = activeSection + 1;
-          prepareVideoForSection(nextSection, 1);
-          setActiveSection(nextSection);
-          virtualProgress.current = 0;
-          smoothProgress.current = 0;
-        } else {
-          virtualProgress.current = 1.0;
-        }
-      } else if (virtualProgress.current < 0.0) {
-        if (activeSection > 0) {
-          const prevSection = activeSection - 1;
-          prepareVideoForSection(prevSection, -1);
-          setActiveSection(prevSection);
-          virtualProgress.current = 1.0;
-          smoothProgress.current = 1.0;
-        } else {
-          virtualProgress.current = 0.0;
-        }
-      }
-    };
-
-    let touchStartY = 0;
-    const handleTouchStart = (e) => {
-      if (e.touches.length === 1) {
-        touchStartY = e.touches[0].clientY;
-      }
-    };
-
-    const handleTouchMove = (e) => {
-      if (e.touches.length !== 1) return;
-      const currentY = e.touches[0].clientY;
-      const deltaY = touchStartY - currentY; // Swipe up = scroll down
-      touchStartY = currentY; // update for continuous tracking
-
-      const scrollSpeed = 0.0035; // mobile touch scroll speed sensitivity
-      virtualProgress.current += deltaY * scrollSpeed;
-
-      if (virtualProgress.current > 1.0) {
-        if (activeSection < 3) {
-          const nextSection = activeSection + 1;
-          prepareVideoForSection(nextSection, 1);
-          setActiveSection(nextSection);
-          virtualProgress.current = 0;
-          smoothProgress.current = 0;
-        } else {
-          virtualProgress.current = 1.0;
-        }
-      } else if (virtualProgress.current < 0.0) {
-        if (activeSection > 0) {
-          const prevSection = activeSection - 1;
-          prepareVideoForSection(prevSection, -1);
-          setActiveSection(prevSection);
-          virtualProgress.current = 1.0;
-          smoothProgress.current = 1.0;
-        } else {
-          virtualProgress.current = 0.0;
-        }
-      }
-    };
-
-    window.addEventListener('wheel', handleWheel, { passive: true });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
-
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-    };
-  }, [activeSection, prepareVideoForSection]);
 
   const sectionData = [
     {
@@ -1180,7 +1123,7 @@ export default function App() {
         />
       </div>
 
-      <div className="ui-fullscreen-wrapper">
+      <div className="ui-fullscreen-wrapper" style={{ pointerEvents: 'none' }}>
         {/* Header Navbar */}
         <header className="interactive-ui" style={{ color: activeSection === 0 ? '#fff' : '#2A2A2A', transition: 'color 0.8s ease' }}>
           <div className="logo" style={{ color: 'inherit' }}>gnapix</div>
@@ -1244,27 +1187,8 @@ export default function App() {
           </nav>
         </header>
 
-        {/* Main Text Content Cards */}
-        <div 
-          className="main-content-card interactive-ui"
-          style={{
-            opacity: loading ? 0 : 1,
-            transform: loading ? 'translateY(20px)' : 'translateY(0)'
-          }}
-        >
-          <span className="section-tagline">{sectionData[activeSection].tagline}</span>
-          <h2 className="section-title">{sectionData[activeSection].title}</h2>
-          <p className="section-desc">{sectionData[activeSection].desc}</p>
-          <button 
-            className="cta-button"
-            onClick={() => handleSetSection((activeSection + 1) % 4)}
-          >
-            Next Experience {sectionData[activeSection].icon}
-          </button>
-        </div>
-
         {/* Footer UI Status indicators */}
-        <div className="footer-status interactive-ui">
+        <div className="footer-status interactive-ui" style={{ color: activeSection === 0 ? '#fff' : '#2A2A2A', transition: 'color 0.8s ease' }}>
           <span>© 2026 Gnapix Prints. Zero e-commerce. Pure Visuals.</span>
           
           {/* Slider dots */}
@@ -1273,11 +1197,42 @@ export default function App() {
               <button
                 key={idx}
                 className={`dot-btn ${activeSection === idx ? 'active' : ''}`}
+                style={{ borderColor: activeSection === 0 ? '#fff' : '' }}
                 onClick={() => handleSetSection(idx)}
               />
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Scrollable Content overlay */}
+      <div 
+        ref={containerRef}
+        className="scroll-container"
+        onScroll={handleScroll}
+      >
+        {sectionData.map((data, idx) => (
+          <div key={idx} className="scroll-section">
+            <div 
+              className="main-content-card interactive-ui"
+              style={{
+                opacity: loading ? 0 : 1,
+                transform: loading ? 'translateY(20px)' : 'translateY(0)',
+                pointerEvents: 'auto'
+              }}
+            >
+              <span className="section-tagline">{data.tagline}</span>
+              <h2 className="section-title">{data.title}</h2>
+              <p className="section-desc">{data.desc}</p>
+              <button 
+                className="cta-button"
+                onClick={() => handleSetSection((idx + 1) % 4)}
+              >
+                Next Experience {data.icon}
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="canvas-fullscreen">
