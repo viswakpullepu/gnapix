@@ -1310,23 +1310,47 @@ export default function App() {
 
   return (
     <div ref={appContainerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-      {/* Dark Wipe Loading Screen */}
+      {/* Skeletal Loading Screen */}
       <AnimatePresence>
         {loading && (
           <motion.div
-            className="loading-wipe"
-            initial={{ y: 0 }}
-            exit={{ y: '-100%' }}
+            className="skeleton-wipe"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
           >
-            <motion.h1 
-              className="loading-logo"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              gnapix
-            </motion.h1>
+            {/* Header placeholder */}
+            <div className="skeleton-header">
+              <div className="skeleton-logo skeleton-pulsing" />
+              <div className="skeleton-nav">
+                <div className="skeleton-nav-item skeleton-pulsing" />
+                <div className="skeleton-nav-item skeleton-pulsing" />
+                <div className="skeleton-nav-item skeleton-pulsing" />
+                <div className="skeleton-nav-item skeleton-pulsing" />
+              </div>
+              <div className="skeleton-btn skeleton-pulsing" />
+            </div>
+
+            {/* Content card placeholder */}
+            <div className="skeleton-content-card">
+              <div className="skeleton-tagline skeleton-pulsing" />
+              <div className="skeleton-title skeleton-pulsing" />
+              <div className="skeleton-line skeleton-desc-1 skeleton-pulsing" />
+              <div className="skeleton-line skeleton-desc-2 skeleton-pulsing" />
+              <div className="skeleton-line skeleton-desc-3 skeleton-pulsing" />
+              <div className="skeleton-cta skeleton-pulsing" />
+            </div>
+
+            {/* Footer placeholder */}
+            <div className="skeleton-footer">
+              <div className="skeleton-footer-text skeleton-pulsing" />
+              <div className="skeleton-dots">
+                <div className="skeleton-dot skeleton-pulsing" />
+                <div className="skeleton-dot skeleton-pulsing" />
+                <div className="skeleton-dot skeleton-pulsing" />
+                <div className="skeleton-dot skeleton-pulsing" />
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
