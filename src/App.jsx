@@ -290,26 +290,7 @@ function HeroScene({ active }) {
 
   return (
     <group visible={active} ref={groupRef} scale={layoutScale}>
-      {/* 2D Overlay for Intro Black Screen & Camera Flash */}
-      {active && (
-        <Html fullscreen style={{ pointerEvents: 'none' }} zIndexRange={[100, 0]}>
-          {/* Intro Black Screen goes off when phase > 0 */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
-            backgroundColor: 'black',
-            opacity: sequencePhase === 0 ? 1 : 0,
-            transition: 'opacity 1s ease'
-          }} />
-          {/* Camera Flash (Instant burst in phase 1, smooth decay in phase 2) */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
-            backgroundColor: 'white',
-            opacity: sequencePhase === 1 ? 1 : 0,
-            transition: sequencePhase === 1 ? 'none' : 'opacity 0.4s ease-out',
-            mixBlendMode: 'screen'
-          }} />
-        </Html>
-      )}
+
 
       {/* 3D Camera */}
       <CameraModel ref={cameraModelRef} scale={0.8} />
