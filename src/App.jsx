@@ -1164,6 +1164,8 @@ export default function App() {
         window.location.search.includes('test=true')
       );
 
+      const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
+
       if (isTestEnv) {
         const urls = {
           stickers: getDummyVideoBlobUrl(),
@@ -1178,7 +1180,15 @@ export default function App() {
         return;
       }
 
-      // Real user environment: fetch actual high-fidelity video files with Cache API caching
+      if (isMobileDevice) {
+        // Skip video downloading and loading on mobile for instant startup and low bandwidth usage
+        if (active) {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Real user environment (desktop): fetch actual high-fidelity video files with Cache API caching
       const videoSources = {
         stickers: '/stickers.mp4',
         magnets: '/magnets.mp4',
@@ -1334,7 +1344,12 @@ export default function App() {
         backgroundColor: activeSection === 0 ? '#0D0B12' : 
                          activeSection === 1 ? '#080B11' : 
                          activeSection === 2 ? '#060E10' : '#0E080F',
-        transition: 'background-color 1.2s ease'
+        backgroundImage: isMobileScreen ? (
+          activeSection === 1 ? 'radial-gradient(circle at 75% 25%, rgba(157, 78, 221, 0.15) 0%, transparent 60%), radial-gradient(circle at 25% 75%, rgba(0, 240, 255, 0.12) 0%, transparent 60%)' :
+          activeSection === 2 ? 'radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.18) 0%, transparent 60%), radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 60%)' :
+          activeSection === 3 ? 'radial-gradient(circle at 50% 50%, rgba(219, 39, 119, 0.15) 0%, transparent 70%), radial-gradient(circle at 80% 25%, rgba(157, 78, 221, 0.1) 0%, transparent 60%)' : 'none'
+        ) : 'none',
+        transition: 'background-color 1.2s ease, background-image 1.2s ease'
       }}>
         <HeroFrameBackground active={activeSection === 0} />
         <video
@@ -1352,6 +1367,7 @@ export default function App() {
             height: '100%',
             objectFit: 'cover',
             opacity: activeSection === 1 ? 0.35 : 0,
+            display: isMobileScreen ? 'none' : 'block',
             transition: 'opacity 1.2s ease',
             willChange: 'opacity',
             transform: 'translate3d(0, 0, 0)',
@@ -1373,6 +1389,7 @@ export default function App() {
             height: '100%',
             objectFit: 'cover',
             opacity: activeSection === 2 ? 0.35 : 0,
+            display: isMobileScreen ? 'none' : 'block',
             transition: 'opacity 1.2s ease',
             willChange: 'opacity',
             transform: 'translate3d(0, 0, 0)',
@@ -1394,6 +1411,7 @@ export default function App() {
             height: '100%',
             objectFit: 'cover',
             opacity: activeSection === 3 ? 0.35 : 0,
+            display: isMobileScreen ? 'none' : 'block',
             transition: 'opacity 1.2s ease',
             willChange: 'opacity',
             transform: 'translate3d(0, 0, 0)',
