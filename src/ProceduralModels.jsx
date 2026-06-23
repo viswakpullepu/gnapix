@@ -189,6 +189,7 @@ export const CameraModel = forwardRef((props, ref) => {
 // 3D Polaroid Model (ForwardRef support)
 export const PolaroidModel = forwardRef(({ pictureIndex = 0, ...props }, ref) => {
   const picTexture = usePictureTexture(pictureIndex);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
     <group ref={ref} {...props}>
@@ -200,16 +201,27 @@ export const PolaroidModel = forwardRef(({ pictureIndex = 0, ...props }, ref) =>
       {/* High-end glossy photograph area */}
       <mesh position={[0, 0.15, 0.065]}>
         <planeGeometry args={[1.32, 1.22]} />
-        <meshPhysicalMaterial 
-          map={picTexture} 
-          roughness={0.2} 
-          metalness={0.0} 
-          clearcoat={0.4} 
-          clearcoatRoughness={0.2} 
-          polygonOffset={true}
-          polygonOffsetFactor={-1}
-          polygonOffsetUnits={-1}
-        />
+        {isMobile ? (
+          <meshStandardMaterial 
+            map={picTexture} 
+            roughness={0.3} 
+            metalness={0.0} 
+            polygonOffset={true}
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
+          />
+        ) : (
+          <meshPhysicalMaterial 
+            map={picTexture} 
+            roughness={0.2} 
+            metalness={0.0} 
+            clearcoat={0.4} 
+            clearcoatRoughness={0.2} 
+            polygonOffset={true}
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
+          />
+        )}
       </mesh>
       {/* Small textured bottom lip */}
       <mesh position={[0, -0.6, 0.064]}>
@@ -223,6 +235,7 @@ export const PolaroidModel = forwardRef(({ pictureIndex = 0, ...props }, ref) =>
 // 3D Magnet Model (ForwardRef support)
 export const MagnetModel = forwardRef(({ pictureIndex = 1, ...props }, ref) => {
   const picTexture = usePictureTexture(pictureIndex);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
     <group ref={ref} {...props}>
@@ -233,17 +246,28 @@ export const MagnetModel = forwardRef(({ pictureIndex = 1, ...props }, ref) => {
       
       <mesh position={[0, 0, 0.05]} castShadow receiveShadow>
         <boxGeometry args={[1.3, 1.3, 0.09]} />
-        <meshPhysicalMaterial
-          transmission={1.0}
-          roughness={0.0}
-          clearcoat={1.0}
-          clearcoatRoughness={0.0}
-          ior={1.6}
-          thickness={1.2}
-          transparent={true}
-          dispersion={0.5}
-          color="#ffffff"
-        />
+        {isMobile ? (
+          <meshPhysicalMaterial
+            roughness={0.15}
+            metalness={0.1}
+            clearcoat={0.8}
+            transparent={true}
+            opacity={0.65}
+            color="#ffffff"
+          />
+        ) : (
+          <meshPhysicalMaterial
+            transmission={1.0}
+            roughness={0.0}
+            clearcoat={1.0}
+            clearcoatRoughness={0.0}
+            ior={1.6}
+            thickness={1.2}
+            transparent={true}
+            dispersion={0.5}
+            color="#ffffff"
+          />
+        )}
       </mesh>
 
       {[-0.55, 0.55].map((x) =>

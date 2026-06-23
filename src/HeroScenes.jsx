@@ -108,7 +108,10 @@ export function HeroSceneC({ active }) {
     for (let i = 0; i < 30; i++) {
       const angle = (i / 30) * Math.PI * 2;
       const radius = 3.5;
-      const z = (Math.random() - 0.5) * 15;
+      const seed = i * 1.5 + 0.5;
+      const xVal = Math.sin(seed) * 10000;
+      const randVal = xVal - Math.floor(xVal);
+      const z = (randVal - 0.5) * 15;
       items.push({
         id: i,
         pos: [Math.cos(angle) * radius, Math.sin(angle) * radius, z],
