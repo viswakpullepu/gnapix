@@ -1182,11 +1182,10 @@ export default function App() {
       }
 
       if (isMobileDevice) {
-        // Skip video downloading and loading on mobile for instant startup and low bandwidth usage
+        // Dismiss loader immediately on mobile to keep startup instant, but continue loading videos in background
         if (active) {
           setLoading(false);
         }
-        return;
       }
 
       // Real user environment (desktop): fetch actual high-fidelity video files with Cache API caching
