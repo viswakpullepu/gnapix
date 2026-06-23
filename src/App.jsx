@@ -99,6 +99,11 @@ function HeroScene({ active }) {
   useEffect(() => {
     if (!active) return;
     
+    // Reset sequence phase asynchronously to avoid react-hooks/set-state-in-effect
+    setTimeout(() => {
+      setSequencePhase(0);
+    }, 0);
+    
     // Initial setup
     polaroidsRef.current.forEach((mesh) => {
       if (mesh) {
@@ -130,7 +135,7 @@ function HeroScene({ active }) {
       .add(() => setSequencePhase(2)) // Printing Phase
       .add(() => {
         polaroidsRef.current.forEach((pMesh, idx) => {
-          if (!pMesh) return;
+          if (!pMesh || !sphereItems[idx]) return;
           const target = sphereItems[idx].spherePos;
           const rotTarget = sphereItems[idx].sphereRot;
           const printDelay = idx * 0.008; // Rapid burst/stream matching the video reference
@@ -203,7 +208,7 @@ function HeroScene({ active }) {
         setSequencePhase(4);
         
         polaroidsRef.current.forEach((pMesh, idx) => {
-          if (!pMesh) return;
+          if (!pMesh || !sphereItems[idx]) return;
           const target = sphereItems[idx].spherePos;
           const targetUI = sphereItems[idx].targetUIPos;
           
@@ -286,23 +291,25 @@ function HeroScene({ active }) {
   return (
     <group visible={active} ref={groupRef} scale={layoutScale}>
       {/* 2D Overlay for Intro Black Screen & Camera Flash */}
-      <Html fullscreen style={{ pointerEvents: 'none' }} zIndexRange={[100, 0]}>
-        {/* Intro Black Screen goes off when phase > 0 */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'black',
-          opacity: sequencePhase === 0 ? 1 : 0,
-          transition: 'opacity 1s ease'
-        }} />
-        {/* Camera Flash (Instant burst in phase 1, smooth decay in phase 2) */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'white',
-          opacity: sequencePhase === 1 ? 1 : 0,
-          transition: sequencePhase === 1 ? 'none' : 'opacity 0.4s ease-out',
-          mixBlendMode: 'screen'
-        }} />
-      </Html>
+      {active && (
+        <Html fullscreen style={{ pointerEvents: 'none' }} zIndexRange={[100, 0]}>
+          {/* Intro Black Screen goes off when phase > 0 */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
+            backgroundColor: 'black',
+            opacity: sequencePhase === 0 ? 1 : 0,
+            transition: 'opacity 1s ease'
+          }} />
+          {/* Camera Flash (Instant burst in phase 1, smooth decay in phase 2) */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh',
+            backgroundColor: 'white',
+            opacity: sequencePhase === 1 ? 1 : 0,
+            transition: sequencePhase === 1 ? 'none' : 'opacity 0.4s ease-out',
+            mixBlendMode: 'screen'
+          }} />
+        </Html>
+      )}
 
       {/* 3D Camera */}
       <CameraModel ref={cameraModelRef} scale={0.8} />
@@ -1028,6 +1035,7 @@ export default function App() {
     magnets: '',
     polaroids: ''
   });
+  const showVideoBackgrounds = !!(videoUrls.stickers && videoUrls.magnets && videoUrls.polaroids);
 
   const vidRefStickers = useRef(null);
   const vidRefMagnets = useRef(null);
@@ -1055,8 +1063,9 @@ export default function App() {
   // Transition setter helper (scrolls container to target section)
   const handleSetSection = (idx) => {
     if (containerRef.current) {
+      const sectionHeight = containerRef.current.clientHeight || window.innerHeight || 1;
       containerRef.current.scrollTo({
-        top: idx * (window.innerHeight || 1),
+        top: idx * sectionHeight,
         behavior: isTestEnv ? 'auto' : 'smooth'
       });
       if (isTestEnv) {
@@ -1068,8 +1077,9 @@ export default function App() {
   const handleScroll = () => {
     if (!containerRef.current) return;
     const { scrollTop } = containerRef.current;
+    const sectionHeight = containerRef.current.clientHeight || window.innerHeight || 1;
     
-    let scrollFraction = scrollTop / (window.innerHeight || 1);
+    let scrollFraction = scrollTop / sectionHeight;
     const nearestSection = Math.round(scrollFraction);
     if (Math.abs(scrollFraction - nearestSection) < 0.15) {
       scrollFraction = nearestSection;
@@ -1344,14 +1354,52 @@ export default function App() {
         backgroundColor: activeSection === 0 ? '#0D0B12' : 
                          activeSection === 1 ? '#080B11' : 
                          activeSection === 2 ? '#060E10' : '#0E080F',
-        backgroundImage: isMobileScreen ? (
-          activeSection === 1 ? 'radial-gradient(circle at 75% 25%, rgba(157, 78, 221, 0.15) 0%, transparent 60%), radial-gradient(circle at 25% 75%, rgba(0, 240, 255, 0.12) 0%, transparent 60%)' :
-          activeSection === 2 ? 'radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.18) 0%, transparent 60%), radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 60%)' :
-          activeSection === 3 ? 'radial-gradient(circle at 50% 50%, rgba(219, 39, 119, 0.15) 0%, transparent 70%), radial-gradient(circle at 80% 25%, rgba(157, 78, 221, 0.1) 0%, transparent 60%)' : 'none'
-        ) : 'none',
-        transition: 'background-color 1.2s ease, background-image 1.2s ease'
+        transition: 'background-color 1.2s ease'
       }}>
         <HeroFrameBackground active={activeSection === 0} />
+
+        {/* Glowing background overlays (shown when videos are not loaded, e.g. on mobile or during preloading) */}
+        {!showVideoBackgrounds && (
+          <>
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundImage: 'radial-gradient(circle at 75% 25%, rgba(157, 78, 221, 0.15) 0%, transparent 60%), radial-gradient(circle at 25% 75%, rgba(0, 240, 255, 0.12) 0%, transparent 60%)',
+              opacity: activeSection === 1 ? 1 : 0,
+              transition: 'opacity 1.2s ease',
+              pointerEvents: 'none',
+              zIndex: 1
+            }} />
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundImage: 'radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.18) 0%, transparent 60%), radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 60%)',
+              opacity: activeSection === 2 ? 1 : 0,
+              transition: 'opacity 1.2s ease',
+              pointerEvents: 'none',
+              zIndex: 1
+            }} />
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(219, 39, 119, 0.15) 0%, transparent 70%), radial-gradient(circle at 80% 25%, rgba(157, 78, 221, 0.1) 0%, transparent 60%)',
+              opacity: activeSection === 3 ? 1 : 0,
+              transition: 'opacity 1.2s ease',
+              pointerEvents: 'none',
+              zIndex: 1
+            }} />
+          </>
+        )}
+
         <video
           id="video-stickers"
           ref={vidRefStickers}
@@ -1367,11 +1415,12 @@ export default function App() {
             height: '100%',
             objectFit: 'cover',
             opacity: activeSection === 1 ? 0.35 : 0,
-            display: isMobileScreen ? 'none' : 'block',
+            display: showVideoBackgrounds ? 'block' : 'none',
             transition: 'opacity 1.2s ease',
             willChange: 'opacity',
             transform: 'translate3d(0, 0, 0)',
-            backfaceVisibility: 'hidden'
+            backfaceVisibility: 'hidden',
+            zIndex: 1
           }}
         />
         <video
@@ -1389,11 +1438,12 @@ export default function App() {
             height: '100%',
             objectFit: 'cover',
             opacity: activeSection === 2 ? 0.35 : 0,
-            display: isMobileScreen ? 'none' : 'block',
+            display: showVideoBackgrounds ? 'block' : 'none',
             transition: 'opacity 1.2s ease',
             willChange: 'opacity',
             transform: 'translate3d(0, 0, 0)',
-            backfaceVisibility: 'hidden'
+            backfaceVisibility: 'hidden',
+            zIndex: 1
           }}
         />
         <video
@@ -1411,11 +1461,12 @@ export default function App() {
             height: '100%',
             objectFit: 'cover',
             opacity: activeSection === 3 ? 0.35 : 0,
-            display: isMobileScreen ? 'none' : 'block',
+            display: showVideoBackgrounds ? 'block' : 'none',
             transition: 'opacity 1.2s ease',
             willChange: 'opacity',
             transform: 'translate3d(0, 0, 0)',
-            backfaceVisibility: 'hidden'
+            backfaceVisibility: 'hidden',
+            zIndex: 1
           }}
         />
       </div>
