@@ -988,21 +988,31 @@ function HeroFrameBackground({ active }) {
   }, [active]);
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
       style={{
         position: 'absolute',
         top: 0,
         left: 0,
         width: '100%',
         height: '100%',
-        objectFit: 'cover',
+        backgroundImage: 'url(/hero-frames/ezgif-frame-001.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         opacity: active ? 0.35 : 0,
         transition: 'opacity 1.2s ease',
         willChange: 'opacity',
         zIndex: 1
       }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover'
+        }}
+      />
+    </div>
   );
 }
 
@@ -1367,7 +1377,7 @@ export default function App() {
               left: 0,
               width: '100%',
               height: '100%',
-              backgroundImage: 'radial-gradient(circle at 75% 25%, rgba(157, 78, 221, 0.15) 0%, transparent 60%), radial-gradient(circle at 25% 75%, rgba(0, 240, 255, 0.12) 0%, transparent 60%)',
+              backgroundImage: 'radial-gradient(circle at 75% 25%, rgba(157, 78, 221, 0.3) 0%, transparent 65%), radial-gradient(circle at 25% 75%, rgba(0, 240, 255, 0.25) 0%, transparent 65%)',
               opacity: activeSection === 1 ? 1 : 0,
               transition: 'opacity 1.2s ease',
               pointerEvents: 'none',
@@ -1379,7 +1389,7 @@ export default function App() {
               left: 0,
               width: '100%',
               height: '100%',
-              backgroundImage: 'radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.18) 0%, transparent 60%), radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 60%)',
+              backgroundImage: 'radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.35) 0%, transparent 65%), radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.25) 0%, transparent 65%)',
               opacity: activeSection === 2 ? 1 : 0,
               transition: 'opacity 1.2s ease',
               pointerEvents: 'none',
@@ -1391,7 +1401,7 @@ export default function App() {
               left: 0,
               width: '100%',
               height: '100%',
-              backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(219, 39, 119, 0.15) 0%, transparent 70%), radial-gradient(circle at 80% 25%, rgba(157, 78, 221, 0.1) 0%, transparent 60%)',
+              backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(219, 39, 119, 0.3) 0%, transparent 75%), radial-gradient(circle at 80% 25%, rgba(157, 78, 221, 0.25) 0%, transparent 65%)',
               opacity: activeSection === 3 ? 1 : 0,
               transition: 'opacity 1.2s ease',
               pointerEvents: 'none',
